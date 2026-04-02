@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h2><i class="fas fa-timeline me-2"></i>Batch Analysis - {{ case.person_name }}</h2>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5>Total Videos</h5>
+                    <h2 id="totalVideos">{{ matches|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5>Processing</h5>
+                    <h2 id="processingCount">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5>Completed</h5>
+                    <h2 id="completedCount">0</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5>Detections</h5>
+                    <h2 id="totalDetections">0</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header"><h5>Progress</h5></div>
+        <div class="card-body">
+            {% for match in matches %}
+            <div class="mb-3" data-match-id="{{ match.id }}">
+                <strong>{{ match.footage.title }}</strong>
+                <span class="badge bg-secondary status-badge">Pending</span>
+                <div class="progress mt-2" style="height: 25px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         id="progress-{{ match.id }}" style="width: 0%">0%</div>
+                </div>
+                <small class="text-muted detection-count">Detections: 0</small>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+function updateProgress() {
+    fetch('/admin/api/batch-progress/{{ case.id }}')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('processingCount').textContent = data.processing;
+            document.getElementById('completedCount').textContent = data.completed;
+            document.getElementById('totalDetections').textContent = data.total_detections;
+            
+            data.matches.forEach(m => {
+                const bar = document.getElementById(`progress-${m.id}`);
+                const badge = document.querySelector(`[data-match-id="${m.id}"] .status-badge`);
+                const count = document.querySelector(`[data-match-id="${m.id}"] .detection-count`);
+                
+                if (bar) {
+                    bar.style.width = m.progress + '%';
+                    bar.textContent = m.progress + '%';
+                    if (m.status === 'completed') bar.classList.remove('progress-bar-animated');
+                }
+                if (badge) badge.textContent = m.status;
+                if (count) count.textContent = `Detections: ${m.detection_count}`;
+            });
+            
+            if (data.completed === data.total) {
+                clearInterval(progressInterval);
+                alert('Analysis complete!');
+                window.location.href = '/admin/ai-analysis';
+            }
+        });
+}
+
+const progressInterval = setInterval(updateProgress, 2000);
+updateProgress();
+</script>
+{% endblock %}

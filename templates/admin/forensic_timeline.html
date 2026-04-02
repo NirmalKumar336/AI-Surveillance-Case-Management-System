@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-timeline me-2"></i>Forensic Timeline - {{ match.case.person_name }}</h2>
+        <a href="{{ url_for('admin.ai_analysis') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back
+        </a>
+    </div>
+    
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5><i class="fas fa-check-circle me-2"></i>Total Detections</h5>
+                    <h2>{{ detections|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5><i class="fas fa-star me-2"></i>High Confidence (≥88%)</h5>
+                    <h2>{{ detections|selectattr('confidence_score', 'ge', 0.88)|list|length }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5><i class="fas fa-percentage me-2"></i>Avg Confidence</h5>
+                    <h2>{{ "%.1f"|format((detections|sum(attribute='confidence_score')/detections|length*100) if detections else 0) }}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5><i class="fas fa-video me-2"></i>Video</h5>
+                    <h6 class="text-truncate">{{ match.footage.title }}</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h5><i class="fas fa-stream me-2"></i>Detection Timeline (Chronological Order)</h5>
+        </div>
+        <div class="card-body">
+            {% if detections %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Frame</th>
+                            <th>Time</th>
+                            <th>Confidence</th>
+                            <th>View</th>
+                            <th>Evidence #</th>
+                            <th>Hash</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for detection in detections %}
+                    <tr>
+                        <td>
+                            {% if detection.frame_path %}
+                            <img src="/{{ detection.frame_path }}" class="img-thumbnail" style="max-width: 120px; cursor: pointer;" 
+                                 onclick="showFullImage('/{{ detection.frame_path }}')"
+                                 alt="Detection at {{ detection.formatted_timestamp }}">
+                            {% else %}
+                            <span class="text-muted">No frame</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ detection.formatted_timestamp }}</strong></td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if detection.confidence_score >= 0.88 else 'warning' if detection.confidence_score >= 0.70 else 'secondary' }}">
+                                {{ "%.1f"|format(detection.confidence_score * 100) }}%
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ detection.matched_view or 'unknown' }}</span>
+                        </td>
+                        <td>
+                            {% if detection.evidence_number %}
+                            <code class="text-primary">{{ detection.evidence_number }}</code>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if detection.frame_hash %}
+                            <code class="text-muted" style="font-size: 0.75rem;">{{ detection.frame_hash[:16] }}...</code>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>No detections found with confidence ≥ 88%.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Full Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detection Frame</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="fullImage" src="" class="img-fluid" alt="Full detection frame">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showFullImage(imagePath) {
+    document.getElementById('fullImage').src = imagePath;
+    new bootstrap.Modal(document.getElementById('imageModal')).show();
+}
+</script>
+{% endblock %}
